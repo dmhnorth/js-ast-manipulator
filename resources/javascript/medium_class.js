@@ -10,8 +10,17 @@ define([
             this.contactView = new ContactView();
             this.stuff();
         },
+        /*
+         * @returns {Object}
+         * @param {String} fish
+         */
         stuff: function (a, b, c) {
             console.log(b, c);
+        },
+        dave: function () {
+            var s;
+            var f;
+            return 'g';
         },
         action: function () {
             return { 'content': this.contactView };
