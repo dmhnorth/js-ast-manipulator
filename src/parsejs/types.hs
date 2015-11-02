@@ -11,14 +11,16 @@ import GHC.Generics
 
 data Element = Literal Text deriving (Show, Generic)
 data Identifier = Identifier Text deriving (Show, Generic)
-data Property = Property Identifier Argument deriving (Show, Generic)
+data Property = Property Argument Argument deriving (Show, Generic)
 data Argument = ElementArgument Element
               | IdentifierArgument Identifier
               | ExpressionArgument Expression
               | UnknownArgument Text
               deriving (Show, Generic)
 data Expression = CallExpression Identifier [Argument]
+                | NewExpression Identifier [Argument]
                 | ArrayExpression [Argument]
+                | AssignmentExpression Expression Expression
                 | FunctionExpression [Identifier] Statement
                 | ObjectExpression [Property]
                 | UnknownExpression Text
@@ -40,15 +42,28 @@ selectArgument x = (IdentifierArgument <$> selectIdentifier x)
 selectProperty :: Object -> Parser Property
 selectProperty x = Property <$> x .: pack "key" <*> x .: pack "value"
 
-makeCall x = CallExpression <$> x .: pack "callee" <*> x .: pack "arguments"
+makeCall :: Object -> Parser Expression
+makeCall x = key >>= res x
+  where key = x .: pack "type"
+
+res :: Object -> String -> Parser Expression
+res x "CallExpression" = makeCall' x
+res x "NewExpression" = makeNew' x
+res x _ = selectExpression' x
+
+makeCall' x = CallExpression <$> x .: pack "callee" <*> x .: pack "arguments"
+makeNew' x = NewExpression <$> x .: pack "callee" <*> x .: pack "arguments"
 makeArray x = ArrayExpression <$> x .: pack "elements"
+makeAssignment x = AssignmentExpression <$> x .: pack "left" <*> x .: pack "right"
 makeFunction x = FunctionExpression <$> x .: pack "params" <*> x .: pack "body"
 makeObject x = ObjectExpression <$> x .: pack "properties"
 makeUnknown x = UnknownExpression <$> x .: pack "type"
 
 selectExpression :: Object -> Parser Expression
-selectExpression x = makeCall x
-  <|> makeArray x
+selectExpression x = makeCall x <|> selectExpression' x
+
+selectExpression' x = makeArray x
+  <|> makeAssignment x
   <|> makeFunction x
   <|> makeObject x
   <|> makeUnknown x
@@ -65,7 +80,7 @@ selectStatement x = makeExpressionStatement x
   <|> unknownStatement x
 
 selectElement :: Object -> Parser Element
-selectElement x = Literal <$> x .: pack "value"
+selectElement x = Literal <$> x .: pack "raw"
 
 selectIdentifier :: Object -> Parser Identifier
 selectIdentifier x = Identifier <$> x .: pack "name"
