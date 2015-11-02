@@ -5,7 +5,9 @@ module ParseJS.Types where
 import Control.Applicative
 import Data.Aeson
 import Data.Aeson.Types
-import Data.Text
+import Data.Text (pack, Text)
+import Data.Maybe
+import Data.Foldable
 import GHC.Generics
 
 
@@ -17,10 +19,12 @@ data Argument = ElementArgument Element
               | ExpressionArgument Expression
               | UnknownArgument Text
               deriving (Show, Generic)
-data Expression = CallExpression Identifier [Argument]
-                | NewExpression Identifier [Argument]
+data Expression = CallExpression Argument [Argument]
+                | NewExpression Argument [Argument]
                 | ArrayExpression [Argument]
+                | MemberExpression Argument Identifier
                 | AssignmentExpression Expression Expression
+                | ThisExpression
                 | FunctionExpression [Identifier] Statement
                 | ObjectExpression [Property]
                 | UnknownExpression Text
@@ -42,31 +46,29 @@ selectArgument x = (IdentifierArgument <$> selectIdentifier x)
 selectProperty :: Object -> Parser Property
 selectProperty x = Property <$> x .: pack "key" <*> x .: pack "value"
 
-makeCall :: Object -> Parser Expression
-makeCall x = key >>= res x
+selectExpression :: Object -> Parser Expression
+selectExpression x = key >>= flip selectExpression' x
   where key = x .: pack "type"
 
-res :: Object -> String -> Parser Expression
-res x "CallExpression" = makeCall' x
-res x "NewExpression" = makeNew' x
-res x _ = selectExpression' x
-
-makeCall' x = CallExpression <$> x .: pack "callee" <*> x .: pack "arguments"
-makeNew' x = NewExpression <$> x .: pack "callee" <*> x .: pack "arguments"
+makeCall x = CallExpression <$> x .: pack "callee" <*> x .: pack "arguments"
+makeNew x = NewExpression <$> x .: pack "callee" <*> x .: pack "arguments"
 makeArray x = ArrayExpression <$> x .: pack "elements"
+makeMember x = MemberExpression <$> x .: pack "object" <*> x .: pack "property"
+makeThis x = return ThisExpression
 makeAssignment x = AssignmentExpression <$> x .: pack "left" <*> x .: pack "right"
 makeFunction x = FunctionExpression <$> x .: pack "params" <*> x .: pack "body"
 makeObject x = ObjectExpression <$> x .: pack "properties"
 makeUnknown x = UnknownExpression <$> x .: pack "type"
 
-selectExpression :: Object -> Parser Expression
-selectExpression x = makeCall x <|> selectExpression' x
-
-selectExpression' x = makeArray x
-  <|> makeAssignment x
-  <|> makeFunction x
-  <|> makeObject x
-  <|> makeUnknown x
+selectExpression' :: String -> Object -> Parser Expression
+selectExpression' "CallExpression" = makeCall
+selectExpression' "NewExpression" = makeNew
+selectExpression' "MemberExpression" = makeMember
+selectExpression' "ThisExpression" = makeThis
+selectExpression' "AssignmentExpression" = makeAssignment
+selectExpression' "FunctionExpression" = makeFunction
+selectExpression' "ObjectExpression" = makeObject
+selectExpression' _ = makeUnknown
 
 makeExpressionStatement x = ExpressionStatement <$> x .: pack "expression"
 makeBlockStatement x = BlockStatement <$> x .: pack "body"
@@ -133,4 +135,28 @@ instance FromJSON Program where
 
 instance ToJSON Program where
   toJSON = genericToJSON defaultOptions
+
+findUnknowns :: Program -> [Text]
+findUnknowns (Program s) = concatMap funcStatement s
+
+funcStatement :: Statement -> [Text]
+funcStatement (ExpressionStatement expression) = funcExpression expression
+funcStatement (BlockStatement statements) = concatMap funcStatement statements
+funcStatement (ReturnStatement expression) = funcExpression expression
+funcStatement (UnknownStatement text) = [text]
+
+funcExpression :: Expression -> [Text]
+funcExpression (CallExpression arg args) = funcArguments (arg : args)
+funcExpression (NewExpression arg args) = funcArguments (arg : args)
+funcExpression (ArrayExpression args) = funcArguments args
+funcExpression (MemberExpression arg ident) = []
+funcExpression (AssignmentExpression expr1 expr2) = concatMap funcExpression [expr1, expr2]
+funcExpression (ThisExpression) = []
+funcExpression (FunctionExpression idents statement) = []
+funcExpression (ObjectExpression props) = []
+funcExpression (UnknownExpression text) = [text]
+
+funcArguments :: [Argument] -> [Text]
+funcArguments _ = []
+
 
