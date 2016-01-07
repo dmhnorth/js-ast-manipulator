@@ -5,7 +5,7 @@ import Data.List
 import Data.Ord
 
 import Jam.Types
-import Main
+import Jam.Decoders
 
 main = defaultMain tests
 
