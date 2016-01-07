@@ -7,7 +7,7 @@ import Data.Aeson
 import Data.Aeson.Types
 import Data.Text
 import GHC.Generics
-import ParseJS.Types
+import Jam.Types
 
 
 jsonFile :: FilePath
