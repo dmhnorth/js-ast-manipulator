@@ -1,8 +1,5 @@
-module Main where
+module Main (main) where
 
-import Control.Applicative
-import Data.Text
-import GHC.Generics
 import Jam.Types
 import Jam.Decoders
 
@@ -14,6 +11,7 @@ main = do
   program <- decodeFile jsonFile
   printProgram program
 
+printProgram :: (Show a) => Maybe a -> IO ()
 printProgram program = case program of
     Nothing -> putStrLn "?"
     Just ps -> print ps

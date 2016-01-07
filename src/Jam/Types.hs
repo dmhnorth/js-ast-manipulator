@@ -11,14 +11,14 @@ import Data.Foldable
 import GHC.Generics
 
 
-data Element = Literal Text deriving (Show, Generic)
-data Identifier = Identifier Text deriving (Show, Generic)
-data Property = Property Argument Argument deriving (Show, Generic)
+data Element = Literal Text deriving (Show, Generic, Eq)
+data Identifier = Identifier Text deriving (Show, Generic, Eq)
+data Property = Property Argument Argument deriving (Show, Generic, Eq)
 data Argument = ElementArgument Element
               | IdentifierArgument Identifier
               | ExpressionArgument Expression
               | UnknownArgument Text
-              deriving (Show, Generic)
+              deriving (Show, Generic, Eq)
 data Expression = CallExpression Argument [Argument]
                 | NewExpression Argument [Argument]
                 | ArrayExpression [Argument]
@@ -28,13 +28,13 @@ data Expression = CallExpression Argument [Argument]
                 | FunctionExpression [Identifier] Statement
                 | ObjectExpression [Property]
                 | UnknownExpression Text
-                deriving (Show, Generic)
+                deriving (Show, Generic, Eq)
 data Statement = ExpressionStatement Expression
                | BlockStatement [Statement]
                | ReturnStatement Expression
                | UnknownStatement Text
-               deriving (Show, Generic)
-data Program = Program [Statement] deriving (Show, Generic)
+               deriving (Show, Generic, Eq)
+data Program = Program [Statement] deriving (Show, Generic, Eq)
 
 
 selectArgument :: Object -> Parser Argument
