@@ -1,6 +1,7 @@
 module Main where
 
 import qualified Data.ByteString.Lazy as B
+import qualified Data.ByteString.Lazy.Char8 as B.Char8
 import Control.Applicative
 import Data.Aeson
 import Data.Aeson.Types
@@ -12,15 +13,18 @@ import ParseJS.Types
 jsonFile :: FilePath
 jsonFile = "resources/ast/medium_class.json"
 
-getAstString :: FilePath -> IO B.ByteString
-getAstString = B.readFile
+decodeFile :: FilePath -> IO (Maybe Program)
+decodeFile file = decode <$> B.readFile file
 
-run :: FilePath -> IO (Maybe Program)
-run file = decode <$> getAstString file
+decodeString :: String -> Maybe Program
+decodeString s = (decode . B.Char8.pack ) s
 
 main :: IO ()
 main = do
-  d <- run jsonFile
-  case d of
+  program <- decodeFile jsonFile
+  printProgram program
+
+
+printProgram program = case program of
     Nothing -> putStrLn "?"
     Just ps -> print ps
